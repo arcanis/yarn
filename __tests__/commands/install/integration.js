@@ -409,6 +409,24 @@ test.concurrent('install file: protocol with relative paths', (): Promise<void> 
   });
 });
 
+test.concurrent('changing the install key should trigger a forced reinstall', async (): Promise<void> => {
+  const fixturesLoc = path.join(__dirname, '..', '..', 'fixtures', 'install');
+  const compLoc = path.join(fixturesLoc, 'install-file-without-cache', 'comp', 'index.js');
+
+  await fs.writeFile(compLoc, 'foo\n');
+  await runInstall({}, 'install-file-without-cache', async (config, reporter) => {
+    expect(await fs.readFile(path.join(config.cwd, 'node_modules', 'comp', 'index.js'))).toEqual('foo\n');
+
+    await fs.writeFile(path.join(config.cwd, 'comp', 'index.js'), 'bar\n');
+    await fs.writeFile(path.join(config.cwd, 'package.json'), JSON.stringify({ dependencies: { comp: 'file:comp' }, yarn: { installKey: 1 } }));
+
+    const reinstall = new Install({}, config, reporter, await Lockfile.fromDirectory(config.cwd));
+    await reinstall.init();
+
+    expect(await fs.readFile(path.join(config.cwd, 'node_modules', 'comp', 'index.js'))).toEqual('bar\n');
+  });
+});
+
 test.concurrent('install file: protocol without force retains installed package', async (): Promise<void> => {
   const fixturesLoc = path.join(__dirname, '..', '..', 'fixtures', 'install');
   const compLoc = path.join(fixturesLoc, 'install-file-without-cache', 'comp', 'index.js');

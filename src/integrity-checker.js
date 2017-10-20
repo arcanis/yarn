@@ -181,12 +181,14 @@ export default class InstallationIntegrityChecker {
     flags: IntegrityFlags,
     workspaceLayout: ?WorkspaceLayout,
     artifacts?: InstallArtifacts,
+    installKey?: ?installKey,
   ): Promise<IntegrityFile> {
     const result: IntegrityFile = {
       ...INTEGRITY_FILE_DEFAULTS(),
       artifacts,
     };
 
+    result.installKey = installKey;
     result.topLevelPatterns = patterns;
 
     // If using workspaces, we also need to add the workspaces patterns to the top-level, so that we'll know if a
@@ -389,6 +391,23 @@ export default class InstallationIntegrityChecker {
     };
   }
 
+  async getInstallKey(): Promise<?InstallKey> {
+    const loc = await this._getIntegrityFileLocation();
+    if (!loc.exists) {
+      return null;
+    }
+
+    const expectedRaw = await fs.readFile(loc.locationPath);
+    let expected: ?IntegrityFile;
+    try {
+      expected = JSON.parse(expectedRaw);
+    } catch (e) {
+      // ignore JSON parsing for legacy text integrity files compatibility
+    }
+
+    return expected ? expected.installKey : null;
+  }
+
   /**
    * Get artifacts from integrity file if it exists.
    */
@@ -418,8 +437,9 @@ export default class InstallationIntegrityChecker {
     flags: IntegrityFlags,
     workspaceLayout: ?WorkspaceLayout,
     artifacts: InstallArtifacts,
+    installKey: ?string,
   ): Promise<void> {
-    const integrityFile = await this._generateIntegrityFile(lockfile, patterns, flags, workspaceLayout, artifacts);
+    const integrityFile = await this._generateIntegrityFile(lockfile, patterns, flags, workspaceLayout, artifacts, installKey);
 
     const loc = await this._getIntegrityFileLocation();
     invariant(loc.locationPath, 'expected integrity hash location');

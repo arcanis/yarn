@@ -130,6 +130,9 @@
       "/_(temp|mock|install|init|helpers).js$"
     ]
   },
+  "yarn": {
+    "installKey": "1"
+  },
   "config": {
     "commitizen": {
       "path": "./node_modules/cz-conventional-changelog"

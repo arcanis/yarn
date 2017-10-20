@@ -397,7 +397,7 @@ export class Install {
     return patterns;
   }
 
-  async bailout(patterns: Array<string>, workspaceLayout: ?WorkspaceLayout): Promise<boolean> {
+  async bailout(patterns: Array<string>, workspaceLayout: ?WorkspaceLayout, installKey: ?string): Promise<boolean> {
     if (this.flags.skipIntegrityCheck || this.flags.force) {
       return false;
     }
@@ -427,7 +427,7 @@ export class Install {
     if (!patterns.length && !match.integrityFileMissing) {
       this.reporter.success(this.reporter.lang('nothingToInstall'));
       await this.createEmptyManifestFolders();
-      await this.saveLockfileAndIntegrity(patterns, workspaceLayout);
+      await this.saveLockfileAndIntegrity(patterns, workspaceLayout, installKey);
       return true;
     }
 
@@ -471,6 +471,16 @@ export class Install {
    */
 
   async init(): Promise<Array<string>> {
+    const projectManifestJson = await this.config.readJson(path.join(this.config.lockfileFolder, constants.NODE_PACKAGE_JSON)) || null;
+
+    const projectInstallKey = (projectManifestJson.yarn && projectManifestJson.yarn.installKey) || null;
+    const integrityInstallKey = await this.integrityChecker.getInstallKey() || null;
+
+    if (projectInstallKey !== integrityInstallKey) {
+      this.flags.force = true;
+      this.scripts.setForce(true);
+    }
+
     this.checkUpdate();
 
     // warn if we have a shrinkwrap
@@ -511,7 +521,7 @@ export class Install {
       });
       topLevelPatterns = this.preparePatterns(rawPatterns);
       flattenedTopLevelPatterns = await this.flatten(topLevelPatterns);
-      return {bailout: await this.bailout(topLevelPatterns, workspaceLayout)};
+      return {bailout: await this.bailout(topLevelPatterns, workspaceLayout, projectInstallKey)};
     });
 
     steps.push(async (curr: number, total: number) => {
@@ -583,7 +593,7 @@ export class Install {
       topLevelPatterns.length ||
       (await fs.exists(path.join(this.config.lockfileFolder, constants.LOCKFILE_FILENAME)))
     ) {
-      await this.saveLockfileAndIntegrity(topLevelPatterns, workspaceLayout);
+      await this.saveLockfileAndIntegrity(topLevelPatterns, workspaceLayout, projectInstallKey);
     } else {
       this.reporter.info(this.reporter.lang('notSavedLockfileNoDependencies'));
     }
@@ -728,7 +738,7 @@ export class Install {
    * Save updated integrity and lockfiles.
    */
 
-  async saveLockfileAndIntegrity(patterns: Array<string>, workspaceLayout: ?WorkspaceLayout): Promise<void> {
+  async saveLockfileAndIntegrity(patterns: Array<string>, workspaceLayout: ?WorkspaceLayout, installKey: ?string): Promise<void> {
     const resolvedPatterns: {[packagePattern: string]: Manifest} = {};
     Object.keys(this.resolver.patterns).forEach(pattern => {
       if (!workspaceLayout || !workspaceLayout.getManifestByPattern(pattern)) {
@@ -752,6 +762,7 @@ export class Install {
       this.flags,
       workspaceLayout,
       this.scripts.getArtifacts(),
+      installKey,
     );
 
     // --no-lockfile or --pure-lockfile or --frozen-lockfile flag
