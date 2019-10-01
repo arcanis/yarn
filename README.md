@@ -18,6 +18,12 @@
 
 ---
 
+Don't mind me
+
+Just checking
+
+Multiline suggestions
+
 **Fast:** Yarn caches every package it has downloaded, so it never needs to download the same package again. It also does almost everything concurrently to maximize resource utilization. This means even faster installs.
 
 **Reliable:** Using a detailed but concise lockfile format and a deterministic algorithm for install operations, Yarn is able to guarantee that any installation that works on one system will work exactly the same on another system.
